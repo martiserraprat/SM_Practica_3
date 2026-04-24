@@ -7,9 +7,8 @@ import time
 import metrikz
 import eines_sessio3
 
-# ─────────────────────────────────────────────
-# Matriu de quantització estàndard JPEG/MPEG
-# ─────────────────────────────────────────────
+BLOCK_SIZE = 8
+
 quantization_matrix = np.array([
     [16., 11., 10., 16., 24., 40., 51., 61.],
     [12., 12., 14., 19., 26., 58., 60., 55.],
@@ -21,66 +20,36 @@ quantization_matrix = np.array([
     [72., 92., 95., 98., 112., 100., 103., 99.]
 ])
 
-BLOCK_SIZE = 8  # mida del bloc en píxels
 
-
-# ─────────────────────────────────────────────
-# Funcions auxiliars DCT i quantització
-# ─────────────────────────────────────────────
+#transformada DCT de matrius
 def dct2(block):
-    """DCT 2D d'un bloc 8x8."""
     return dct(dct(block, axis=0, norm='ortho'), axis=1, norm='ortho')
 
-
+#inversa de la transformada DCT de matrius
 def idct2(block):
-    """Inversa DCT 2D d'un bloc 8x8."""
     return np.round(idct(idct(block, axis=1, norm='ortho'), axis=0, norm='ortho'))
 
-
+#funcio de quantitzacio
 def quantit(block):
-    """Quantització d'un bloc DCT."""
     return np.round(block / quantization_matrix)
 
-
+# funcio inversa de de quantitzacio
 def iquantit(block):
-    """Quantització inversa."""
     return block * quantization_matrix
 
-
+#  MSE entre dos blocs 8x8
 def calcular_mse_bloc(bloc1, bloc2):
-    """MSE entre dos blocs 8x8."""
     return np.mean((bloc1.astype(float) - bloc2.astype(float)) ** 2)
 
 
-# ─────────────────────────────────────────────
-# Algoritme de Block Matching
-# ─────────────────────────────────────────────
+# Block Matching
 def block_matching(frame1, frame2, block_size=8, search_mode='full', search_range=12):
-    """
-    Algorisme de block matching entre dos frames.
-
-    Paràmetres
-    ----------
-    frame1      : frame anterior (referència), en grisos
-    frame2      : frame actual, en grisos
-    block_size  : mida del bloc (per defecte 8x8)
-    search_mode : 'full'      → V1: cerca en tota la imatge
-                  'restricted'→ V2: cerca en una regió limitada (search_range)
-    search_range: radi de cerca per al mode restringit (en píxels)
-
-    Retorna
-    -------
-    actual_position  : llista de (row, col) de cada bloc al frame2
-    motion_vector    : llista de (dy, dx) per a cada bloc
-    errors_prediction: llista de vectors zigzag dels errors quantitzats
-    """
-
     h, w = frame2.shape
     actual_position = []
     motion_vector = []
     errors_prediction = []
 
-    # Recorrem tots els blocs del frame actual (frame2)
+    # Recorrem tots els blocs del frame actual
     for row in range(0, h - block_size + 1, block_size):
         for col in range(0, w - block_size + 1, block_size):
 
@@ -90,7 +59,7 @@ def block_matching(frame1, frame2, block_size=8, search_mode='full', search_rang
             best_mse = float('inf')
             best_pos = (row, col)  # per defecte, mateixa posició
 
-            # ── V1: cerca en tota la imatge ──────────────────────────────
+            # V1 cerca en tota la imatge
             if search_mode == 'full':
                 for r in range(0, h - block_size + 1, block_size):
                     for c in range(0, w - block_size + 1, block_size):
@@ -100,7 +69,7 @@ def block_matching(frame1, frame2, block_size=8, search_mode='full', search_rang
                             best_mse = mse_val
                             best_pos = (r, c)
 
-            # ── V2: cerca en una regió restringida ───────────────────────
+            # V2 cerca en una regió restringida
             elif search_mode == 'restricted':
                 r_min = max(0, row - search_range)
                 r_max = min(h - block_size, row + search_range)
@@ -115,7 +84,6 @@ def block_matching(frame1, frame2, block_size=8, search_mode='full', search_rang
                             best_mse = mse_val
                             best_pos = (r, c)
 
-            # ── Guardem resultats ────────────────────────────────────────
             actual_position.append((row, col))
 
             dy = best_pos[0] - row
@@ -138,14 +106,9 @@ def block_matching(frame1, frame2, block_size=8, search_mode='full', search_rang
     return actual_position, motion_vector, errors_prediction
 
 
-# ─────────────────────────────────────────────
 # Visualització dels vectors de moviment
-# ─────────────────────────────────────────────
 def visualitzar_vectors(frame2, actual_position, motion_vector, titol="Vectors de moviment", block_size=8):
-    """
-    Dibuixa els vectors de moviment sobre el frame2.
-    Línies vermelles des de la posició actual fins a la posició del bloc de referència.
-    """
+
     img_color = cv2.cvtColor(frame2, cv2.COLOR_GRAY2BGR)
 
     for i, ((row, col), (dy, dx)) in enumerate(zip(actual_position, motion_vector)):
@@ -161,7 +124,6 @@ def visualitzar_vectors(frame2, actual_position, motion_vector, titol="Vectors d
                      (cx_ref, cy_ref),
                      (0, 0, 255), 1)
 
-    # Convertim BGR→RGB per matplotlib
     img_rgb = cv2.cvtColor(img_color, cv2.COLOR_BGR2RGB)
     plt.figure(figsize=(10, 6))
     plt.imshow(img_rgb)
@@ -173,12 +135,8 @@ def visualitzar_vectors(frame2, actual_position, motion_vector, titol="Vectors d
     print(f"  → Imatge guardada com '{titol.replace(' ', '_')}.png'")
 
 
-# ─────────────────────────────────────────────
-# MAIN
-# ─────────────────────────────────────────────
 if __name__ == '__main__':
 
-    # Parells d'imatges disponibles
     parells = [
         ("frame0_1.png", "frame0_2.png"),
         ("frame1_1.png", "frame1_2.png"),
@@ -189,7 +147,7 @@ if __name__ == '__main__':
     print("  BLOCK MATCHING - Pràctica 3 Sistemes Multimèdia")
     print("=" * 65)
 
-    resultats = []  # per a la taula resum
+    resultats = []
 
     for nom1, nom2 in parells:
         img1 = cv2.imread(nom1)
@@ -252,7 +210,7 @@ if __name__ == '__main__':
             titol = f"Vectors de moviment - {nom1.split('.')[0]} ({label})"
             visualitzar_vectors(frame2, actual_pos, mov_vec, titol=titol)
 
-    # ─── Taula resum ─────────────────────────────────────────────────
+    #Taula resum
     print("\n" + "=" * 65)
     print("  TAULA RESUM")
     print("=" * 65)
