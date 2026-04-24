@@ -61,8 +61,8 @@ def block_matching(frame1, frame2, block_size=8, search_mode='full', search_rang
 
             # V1 cerca en tota la imatge
             if search_mode == 'full':
-                for r in range(0, h - block_size + 1, block_size):
-                    for c in range(0, w - block_size + 1, block_size):
+                for r in range(0, h - block_size + 1):
+                    for c in range(0, w - block_size + 1):
                         bloc_ref = frame1[r:r + block_size, c:c + block_size].astype(float)
                         mse_val = calcular_mse_bloc(bloc_actual, bloc_ref)
                         if mse_val < best_mse:
